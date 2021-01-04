@@ -1,6 +1,5 @@
 import asyncio
 from collections import defaultdict, deque
-
 from collections.abc import Mapping, Set
 from contextlib import suppress
 from datetime import timedelta
@@ -6417,17 +6416,12 @@ class Scheduler(SchedulerState, ServerNode):
         if parent._unrunnable and not parent._workers_dv:
             cpu = max(1, cpu)
 
-        # Memory
-        limit_bytes = {
-            addr: ws._memory_limit for addr, ws in parent._workers_dv.items()
-        }
-        worker_bytes = [ws._nbytes for ws in parent._workers_dv.values()]
-        limit = sum(limit_bytes.values())
-        total = sum(worker_bytes)
-        if total > 0.6 * limit:
-            memory = 2 * len(parent._workers_dv)
-        else:
-            memory = 0
+        # add more workers if more than 60% of memory is used
+        limit = sum(ws._memory_limit for ws in parent._workers_dv.values())
+        used = sum(ws._nbytes for ws in parent._workers_dv.values())
+        memory = 0
+        if used > 0.6 * limit and limit > 0:
+            memory = 2 * len(self.workers)
 
         target = max(memory, cpu)
         if target >= len(parent._workers_dv):
